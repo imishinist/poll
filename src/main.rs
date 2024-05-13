@@ -24,16 +24,23 @@ impl From<Duration> for Interval {
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about=None)]
 #[command(propagate_version = true)]
+#[clap(group(clap::ArgGroup::new("evaluations")
+        .required(true)
+        .args(&["equals", "not_equals"])))]
 struct PollCmd {
     #[clap(long, default_value = "5s")]
     interval: Duration,
 
-    #[clap(short, long = "equals")]
-    equals: String,
+    #[clap(short, long = "equals", value_name = "expression")]
+    equals: Option<String>,
+
+    #[clap(short, long = "not-equals", value_name = "expression")]
+    not_equals: Option<String>,
 
     #[clap(short, long)]
     on_finish: Option<String>,
 
+    #[clap(short, long)]
     command: String,
 }
 
@@ -82,14 +89,26 @@ fn main() -> Result<()> {
         if status.success() {
             log::info!("status: success");
             let output = trim_newline(&output.stdout);
-            if cmd.equals.as_bytes() == output {
-                break;
+            if let Some(ref equals) = cmd.equals {
+                if equals.as_bytes() == output {
+                    break;
+                }
+                log::info!(
+                    "output: {:?} not equals with {:?}",
+                    output,
+                    equals.as_bytes()
+                );
             }
-            log::info!(
-                "output: {:?} not equals with {:?}",
-                output,
-                cmd.equals.as_bytes()
-            );
+            if let Some(ref not_equals) = cmd.not_equals {
+                if not_equals.as_bytes() != output {
+                    break;
+                }
+                log::info!(
+                    "output: {:?} equals with {:?}",
+                    output,
+                    not_equals.as_bytes()
+                );
+            }
         }
         log::info!("exit status: {:?}", status);
 
